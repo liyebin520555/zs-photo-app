@@ -65,7 +65,8 @@ Windows 也可直接双击 `启动证件照工具.bat`。
    - VAE：`qwen_image_vae.safetensors`
 3. 界面 AI 分组里可切换主模型与 LoRA（切换会自动匹配 4 / 8 / 20 步），采样过程在预览窗实时显示。
 
-配套的 ComfyUI 自定义节点（综合美颜精修，含汉化）见 `ComfyUI-FaceBeauty`。
+配套的 ComfyUI 自定义节点（综合美颜精修，含汉化）：
+[ComfyUI-FaceBeauty](https://github.com/liyebin520555/ComfyUI-FaceBeauty)
 
 ## 说明
 
