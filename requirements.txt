@@ -3,4 +3,5 @@ opencv-python<5
 pillow
 rembg
 onnxruntime
+mediapipe
 numpy
