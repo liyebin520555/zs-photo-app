@@ -1,0 +1,8 @@
+你是资深 Python 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写模块 core/beautify.py，实现人像美颜。所有函数输入输出都是 BGR numpy 图像。要求：
+
+1. `smooth_skin(bgr, strength=40)`: 磨皮。strength 0-100。方法：cv2.bilateralFilter(d=9, sigmaColor=75, sigmaSpace=75)，在 YCrCb 色彩空间用 cv2.inRange((0,135,85),(255,180,135)) 取肤色掩码，只对肤色区域按 strength/100 比例与磨皮结果混合，非肤色区域保持原样。
+2. `whiten(bgr, amount=20)`: 美白。amount 0-100。在肤色掩码区域用 cv2.convertScaleAbs 提亮（alpha=1, beta=amount*0.6），与原图按掩码混合。
+3. `sharpen(bgr, amount=30)`: USM 锐化。高斯模糊后按 amount/100 比例做 addWeighted。
+4. `beautify_pipeline(bgr, smooth=40, white=20, sharp=30)`: 依次执行三步并返回。

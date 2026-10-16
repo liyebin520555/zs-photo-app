@@ -1,0 +1,15 @@
+你是资深 Python/PySide6 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写 ui/photo_tab.py，证件照制作页。依赖模块已存在，直接 import：from core.matting import remove_background, change_background；from core.photo_specs import SPECS, detect_face, compose_id_photo, make_layout_sheet；from core.beautify import beautify_pipeline。
+
+类 `PhotoTab(QWidget)`，界面布局：
+- 水平主布局三列：
+  左列：QLabel 显示原图预览（固定宽 380，等比缩放），下方按钮「打开图片」
+  中列（控制面板，垂直布局）：「背景色」QComboBox（白色/蓝色(67,142,219 用BGR记)/红色/深蓝/自定义…，选自定义弹 QColorDialog）；「规格」QComboBox 填 SPECS.keys()；三个美颜 QSlider(0-100)「磨皮」默认40、「美白」默认20、「锐化」默认30（滑杆旁 QLabel 显示数值）；按钮「生成证件照」；按钮「保存单张」；按钮「保存六寸排版」
+  右列：QLabel 显示结果预览（固定宽 380）
+- 处理流程：点「生成证件照」后禁用按钮，在 QThread 中执行：beautify_pipeline(原图, smooth, white, sharp) → detect_face → remove_background → change_background(背景色) → compose_id_photo(带alpha结果, 规格, face_box, 背景色)。用自定义 QThread 子类 + Signal(np.ndarray) 传结果 + Signal(str) 传错误。
+- 线程完成：恢复按钮，把结果图存到 self.result_bgr 并更新右列预览。
+- 「保存单张」：QFileDialog.getSaveFileName 过滤 "JPEG (*.jpg);;PNG (*.png)"，cv2.imencode 保存（处理中文路径）。
+- 「保存六寸排版」：make_layout_sheet 生成后同样保存。
+- 图像与 QPixmap 互转用 cv2.cvtColor(BGR2RGB) → QImage.Format_RGB888。
+- 图片路径可能含中文，读文件用 cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_COLOR)。

@@ -1,0 +1,6 @@
+PySide6
+opencv-python<5
+pillow
+rembg
+onnxruntime
+numpy

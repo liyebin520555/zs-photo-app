@@ -1,0 +1,19 @@
+你是资深 Python 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写模块 core/photo_specs.py，实现证件照规格与排版。要求：
+
+1. `SPECS`: 有序字典，键为中文名，值为 (宽mm, 高mm)。包含：
+   一寸(25,35)、大一寸(33,48)、小二寸(35,45)、二寸(35,49)、身份证(26,32)、驾驶证(22,32)、护照签证(33,48)、美国签证(51,51)
+2. `mm_to_px(mm, dpi=300)` 返回取整像素。
+3. `detect_face(bgr)`: 用 cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml') 检测最大人脸，返回 (x,y,w,h) 元组，检测不到返回 None。.CascadeClassifier 只创建一次缓存。
+4. `compose_id_photo(rgba_person, spec_name, face_box, bg_bgr)`:
+   - rgba_person: 带 alpha 的 numpy 图像 (H,W,4)，bg_bgr 是 (B,G,R) 元组
+   - 目标尺寸 = 规格像素（300dpi）
+   - 缩放人像使得 face_box 高度映射到约 0.42 倍照片高，人脸中心 x 对齐照片水平中心，face_box 顶部位于照片高度约 0.25 处
+   - 人像以 alpha 混合贴到纯色背景上，超出画布部分裁掉
+   - 返回 BGR 图像
+5. `make_layout_sheet(id_photo_bgr, spec_name)`:
+   - 六寸相纸 300dpi = 1200 宽 × 1800 高（竖版）
+   - 根据规格尺寸计算每行每列能放几张（含 2mm 间距与边距 15px），自动排满
+   - 每张之间画 1px 淡灰色裁切参考线
+   - 返回 BGR 图像

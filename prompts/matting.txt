@@ -1,0 +1,7 @@
+你是资深 Python 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写模块 core/matting.py，实现人像抠图与换背景。要求：
+
+1. `remove_background(bgr)`: 输入 BGR numpy 图像，先用 cv2 缩到最长边 ≤1600 提速，用 rembg（from rembg import remove; from PIL import Image）抠图，返回与输出尺寸一致的 RGBA numpy 图像 (H,W,4)。
+2. `change_background(rgba, bg_bgr)`: 返回换底后的 BGR 图像。对 alpha 通道先做轻度腐蚀(3x3)再高斯模糊(3x3)实现边缘羽化，然后 alpha 混合到纯色背景 bg_bgr。
+3. `load_rembg_session()`: 单例方式创建 rembg 的 session（new_session('u2net')），避免每次调用重新加载模型。

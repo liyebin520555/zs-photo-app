@@ -1,0 +1,10 @@
+你是资深 Python/PySide6 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写应用入口 main.py：
+- import sys, os；把脚本所在目录加入 sys.path
+- from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
+- from ui.photo_tab import PhotoTab；from ui.scan_tab import ScanTab
+- 类 MainWindow(QMainWindow)：标题「证件照 & 文档扫描工具」，尺寸 1280x820，居中显示（QScreen availableGeometry 计算）
+- 中央 QTabWidget 两个标签页：「证件照」(PhotoTab)、「文档扫描」(ScanTab)，图标可以省略
+- main() 里 app.setApplicationName，window.show()，sys.exit(app.exec())
+- if __name__ == '__main__': main()

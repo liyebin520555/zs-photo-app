@@ -1,0 +1,49 @@
+你是资深 Python/PySide6 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+重写 ui/photo_tab.py（证件照页），整合全部功能。所有依赖模块已存在，严格按下面签名调用，不要修改签名：
+
+```python
+from core.beautify import beautify_pipeline          # (bgr, smooth, white, sharp) -> bgr
+from core.retouch import retouch_pipeline, recolor_hair  # (bgr, slim, eyes, smile_amt, teeth) / (bgr, target_rgb, amount)
+from core.matting import remove_background, change_background  # (bgr)->RGBA / (rgba, bg_bgr)->bgr
+from core.photo_specs import SPECS, detect_face, compose_id_photo, compose_id_photo_custom
+#   compose_id_photo(rgba, spec_name, face_box, bg_bgr) -> bgr
+#   compose_id_photo_custom(rgba, w_mm, h_mm, face_box, bg_bgr, dpi=300) -> bgr
+from core.layout import make_sheet, layout_preview_info, PAPER_SIZES
+#   make_sheet(id_photo_bgr, spec_name, paper_name='6寸', dpi=300, margin_mm=3, gap_mm=2, draw_guide=True, border=False)
+from core.comfy_client import is_available, edit_image, PRESET_PROMPTS
+```
+
+界面结构（三列 QHBoxLayout）：
+【左列】QLabel original_label 原图预览（固定 360x460，等比缩放，边框样式）；按钮「打开图片」
+【中列】用 QScrollArea 包裹的垂直控制面板：
+  1. 「规格」QComboBox（setEditable(True)，addItems(list(SPECS.keys()))）+ 按钮「自定义尺寸」（弹 QDialog：宽 mm / 高 mm / DPI 三个输入框，确定后 self.custom_size=(w_mm,h_mm,dpi)，并让规格下拉显示"自定义 WxHmm"）
+  2. 「背景色」QComboBox：白色/蓝色/红色/深蓝/浅灰/渐变蓝/自定义，自定义弹 QColorDialog
+  3. 「美颜」三个滑杆：磨皮(默认40)、美白(20)、锐化(30)，每个滑杆右侧 QLabel 显示数值
+  4. 「精修」四个滑杆：瘦脸(0)、大眼(0)、微笑(0)、牙齿美白(0)，同样显示数值
+  5. 「发色」QComboBox：原色/自然黑/深棕/浅棕/亚麻金/红棕/自定义 + 「发色强度」滑杆(默认60)
+  6. 分隔线 + 「AI 编辑（需启动 ComfyUI）」QLabel 状态 + 四个按钮：换正装 / 换白衬衫 / 换发型 / 一键微笑；初始化时用 comfy_client.is_available() 检测，不可用时按钮 setEnabled(False) 且状态标签显示红色"ComfyUI 未启动"
+  7. 「排版」QComboBox 填 PAPER_SIZES.keys() + QCheckBox「裁切线」(默认勾选) + QCheckBox「描边」(默认不勾) + QLabel layout_info 显示 layout_preview_info 结果
+  8. 按钮：「生成证件照」「保存单张」「保存排版图」
+【右列】QLabel result_label 结果预览（固定 360x460）
+
+线程与流程：
+- `LocalWorker(QThread)`：run() 依次执行
+  beautify_pipeline(orig, smooth, white, sharp)
+  → retouch_pipeline(..., slim, eyes, smile, teeth)
+  → recolor_hair(..., target_rgb, hair_amount)（发色选"原色"时跳过）
+  → detect_face（返回 None 时 emit error "未检测到人脸"）
+  → remove_background
+  → compose_id_photo(rgba, spec_name, face_box, bg_bgr) 或（自定义尺寸时）compose_id_photo_custom(rgba, w_mm, h_mm, face_box, bg_bgr, dpi)
+  signals: finished_ok(np.ndarray) / failed(str)
+  构造参数用关键字传入，类内保存全部参数
+- `AIWorker(QThread)`：run() 调 edit_image(self.orig_bgr, PRESET_PROMPTS[preset_name], steps=4, timeout=1800)，signals: finished_ok / failed
+- 点「生成证件照」：禁用按钮、result_label 显示"处理中..."、启动 LocalWorker
+- AI 按钮：同样禁用按钮启动 AIWorker；成功后把结果同时设置为新的 original_bgr 和预览，并提示"已应用 AI 编辑，请再点生成证件照"
+- 失败时 QMessageBox.warning 提示，并恢复按钮
+
+其他要求：
+- 图片读取用 np.fromfile + cv2.imdecode（中文路径）；保存用 cv2.imencode + tofile，默认文件名含规格名
+- BGR→QPixmap 用 cv2.cvtColor(BGR2RGB) + QImage.Format_RGB888
+- 「保存单张」保存 self.result_bgr；「保存排版图」用 make_sheet 生成后保存，规格为自定义时用最近一次生成的规格名或 "一寸"
+- 所有按钮在生成过程中禁用，结束时恢复

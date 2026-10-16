@@ -1,0 +1,16 @@
+你是资深 Python/OpenCV 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写 core/layout.py，证件照打印排版。要求：
+
+1. 常量 `PAPER_SIZES`：字典，中文纸名 -> (宽mm, 高mm)，含：
+   5寸(89,127)、6寸(102,152)、7寸(127,178)、A4(210,297)，并额外增加 6寸横版(152,102)、A4横版(297,210)
+2. `make_sheet(id_photo_bgr, spec_name, paper_name='6寸', dpi=300, margin_mm=3, gap_mm=2, draw_guide=True, border=False) -> np.ndarray`：
+   - 用 core.spec_data.SPECS 查规格 mm 尺寸（from core.spec_data import SPECS）
+   - 按 dpi 换算所有尺寸为像素
+   - 计算行列数使纸张内排满（列数 = int((可用宽 + gap) / (照片宽 + gap))，行数同理），至少各 1
+   - 照片整体在纸上居中排布
+   - draw_guide=True 时在每张照片四周画 1px 灰色(200,200,200)裁切参考线
+   - border=True 时在每张照片内侧画 1px 黑色细边框
+   - 返回 BGR 图像
+3. `layout_preview_info(id_photo_bgr, spec_name, paper_name, dpi=300)`：返回字符串，例如 "6寸相纸可排 8 张（2列 × 4行）"，用于界面提示
+4. 处理纸张放不下一张照片的情况：返回白底纸张并在图像中央放一张照片（超出部分裁掉）

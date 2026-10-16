@@ -1,0 +1,22 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- 运行时产物（不纳入版本库）----
+outputs/
+test_comfy_out/
+*.log
+
+# ---- 测试/临时图片 ----
+_stream_test.jpg
+证件照_一寸.jpg
+*.tmp
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini

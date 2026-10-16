@@ -1,0 +1,36 @@
+你是资深 Python/OpenCV 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写模块 core/retouch.py，基于 mediapipe tasks API 的人脸关键点做局部精修。所有函数输入输出都是 BGR numpy 图像(uint8)。
+
+【关键点检测】
+使用 mediapipe 新 tasks API（不是 mp.solutions，1.1.1 已移除）：
+```
+from mediapipe.tasks import python as mp_python
+from mediapipe.tasks.python import vision
+import mediapipe as mp
+```
+模型文件路径 = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models', 'face_landmarker.task')
+用 vision.FaceLandmarker.create_from_options 创建单例（num_faces=1, running_mode=vision.RunningMode.IMAGE），缓存为全局变量。
+```
+def get_landmarks(bgr):
+    """返回 (N,2) 的像素坐标 float32 数组，无人脸返回 None"""
+```
+实现：cv2.cvtColor 转 RGB → mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb) → detect → result.face_landmarks[0] 每个点 (lm.x*W, lm.y*H)。
+
+【通用局部形变】
+写一个内部函数 `_warp(bgr, center, radius, displacement_func, strength)`：
+- 生成与图像同为 float32 的 map_x/map_y（np.indices）
+- 对每个像素计算到 center 的距离 d，权重 w = 高斯衰减 exp(-(d/radius)**2 * 2.5) * strength
+- 位移量 = displacement_func(dx, dy, d) 返回 (sx, sy)，最终 map_x = x + sx, map_y = y + sy
+- 用 cv2.remap(bgr, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+- 为提速：只在 center±radius 的 ROI 内计算，其余区域直接复制
+
+【功能函数】
+1. `slim_face(bgr, amount=0)` 瘦脸：amount 0-100。左右脸颊各做一次 warp，变形中心取关键点：左脸颊 index 234，右脸颊 454；半径 = 0.22 * 脸宽(左右脸颊点距离) * 2；位移方向朝脸中心（鼻尖 index 1）水平方向，位移量 = amount/100 * 0.06 * 半径 * w。
+2. `enlarge_eyes(bgr, amount=0)` 大眼：左右眼中心分别取左眼 index 468± 不存在则用 (33+133)/2 的中点和 (362+263)/2；半径 = 1.7 * 眼宽(点 33 到 133 的距离)；位移朝眼中心收缩，位移量 = amount/100 * 0.35 * d * w（d 是像素到眼中心距离）——注意实现为「向内拉」即放大效果。
+3. `smile(bgr, amount=0)` 一键微笑：左右嘴角 index 61 和 291；对每个嘴角做 warp，半径 = 0.9 * 嘴宽；位移方向 = 向上(‑y) 且向外(远离嘴中心) 的组合，位移量 = amount/100 * 0.10 * 半径 * w。
+4. `whiten_teeth(bgr, amount=0)` 牙齿美白：内唇多边形点 index [78,191,80,81,82,13,312,311,310,415,308,324,318,402,317,14,87,178,88,95]，用 cv2.fillPoly 生成嘴内区域掩码，在掩码内挑出「亮度高（Y>110）、饱和度低」的像素作为牙齿掩码；对牙齿掩码做 N*0.5 的亮度提升并略微降低饱和度，按掩码羽化后混合。
+5. `recolor_hair(bgr, target_rgb=(0,0,0), amount=0)` 换发色：用「人脸框上方 + 人像暗色区域」近似头发掩码：取所有人脸关键点 bbox，向上扩展到图像顶部的区域设为候选区；在候选区内取 Y 值低于该区域均值的像素 + 饱和度合理的像素作为头发掩码（再做形态学开闭运算平滑）；在 HSV 空间把头发像素的 H 通道替换为 target_rgb 的 H，S 和 V 保留原比例乘以 amount/100 的强度做加权混合。
+6. `retouch_pipeline(bgr, slim=0, eyes=0, smile_amt=0, teeth=0)` 依次执行三个形变与牙齿美白，返回结果。
+
+所有函数在 get_landmarks 返回 None 时直接返回原图副本，不要抛异常。

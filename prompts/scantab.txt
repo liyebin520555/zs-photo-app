@@ -1,0 +1,12 @@
+你是资深 Python/PySide6 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写 ui/scan_tab.py，文档扫描页。依赖模块已存在：from core.scanner import find_document_contour, four_point_transform, enhance_document。
+
+类 `ScanTab(QWidget)`，布局：
+- 左列：QLabel 原图预览（固定宽 420，等比缩放），按钮「打开图片」「自动检测边缘」
+- 中列：QLabel「边缘检测结果」预览（固定宽 300，显示画了四边形轮廓的图）；说明文字
+- 右列：QLabel 结果预览（固定宽 380）；QComboBox「滤镜」（原图/增强/灰度/黑白，切换时实时刷新右列）；按钮「保存结果」
+- 「自动检测边缘」：调 find_document_contour，若找到四边形则把顶点画在原图副本上（绿色粗线+顶点圆点）更新中列预览并缓存顶点；若没找到，在说明文字处提示"未检测到文档边缘，将按原图四角矫正"并把顶点设为图像四角。
+- 点「保存结果」或滤镜切换时：用缓存的顶点调 four_point_transform → enhance_document(滤镜mode) → 更新右列预览。mode 映射：原图→original、增强→enhanced、灰度→gray、黑白→bw。
+- 「保存结果」用 QFileDialog，cv2.imencode 保存（处理中文路径）。
+- 读图用 cv2.imdecode(np.fromfile(...))，QPixmap 转换用 cv2.cvtColor(BGR2RGB)+QImage.Format_RGB888。

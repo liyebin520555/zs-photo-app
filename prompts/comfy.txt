@@ -1,0 +1,40 @@
+你是资深 Python/PySide6 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写 core/comfy_client.py，用于调用本机 ComfyUI（默认 http://127.0.0.1:8188）对证件照做生成式编辑（换装、换发型、一键微笑）。只用标准库 urllib/json + cv2/numpy/PIL，不要 requests。
+
+接口：
+```python
+COMFY_URL = "http://127.0.0.1:8188"
+
+def is_available() -> bool:
+    """GET /system_stats，超时 3 秒，能通返回 True"""
+
+def edit_image(image_bgr, prompt, negative="", steps=4, seed=None, timeout=900) -> np.ndarray:
+    """把 image_bgr 上传到 ComfyUI，按 prompt 做 Qwen-Image-Edit 编辑，返回结果 BGR 图像"""
+```
+
+实现要点：
+1. `_upload_image(image_bgr)`：cv2.imencode('.png') 后构造 multipart/form-data POST 到 /upload/image，字段名 name="clipspace/input.png"、type="input"、overwrite="true"，返回 ComfyUI 返回的 name 字段。
+2. `_build_workflow(image_name, prompt, negative, steps, seed)`：返回 API 格式（节点 id -> {class_type, inputs}）的字典，节点如下（使用 ComfyUI 标准 Qwen-Image-Edit 节点，模型名按下面写死并允许通过模块级常量覆盖）：
+   - UNET_LOADER: class_type "UNETLoader", inputs {"unet_name": QWEN_UNET, "weight_dtype": "default"}
+   - CLIP_LOADER: "CLIPLoader", inputs {"clip_name": QWEN_CLIP, "type": "qwen_image"}
+   - VAE_LOADER: "VAELoader", inputs {"vae_name": QWEN_VAE}
+   - MODEL_SAMPLING: "ModelSamplingAuraFlow", inputs {"model": ["UNET_LOADER", 0], "shift": 3.1}
+   - LOAD_IMAGE: "LoadImage", inputs {"image": image_name}
+   - POS: "TextEncodeQwenImageEdit", inputs {"clip": ["CLIP_LOADER", 0], "vae": ["VAE_LOADER", 0], "image": ["LOAD_IMAGE", 0], "prompt": prompt}
+   - NEG: 同上 prompt=negative
+   - KSampler: "KSampler", inputs {"model": ["MODEL_SAMPLING", 0], "positive": ["POS", 0], "negative": ["NEG", 0], "latent_image": ["VAE_ENCODE", 0], "seed": seed, "steps": steps, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}
+   - VAE_ENCODE: "VAEEncode", inputs {"pixels": ["LOAD_IMAGE", 0], "vae": ["VAE_LOADER", 0]}
+   - VAE_DECODE: "VAEDecode", inputs {"samples": ["KSampler", 0], "vae": ["VAE_LOADER", 0]}
+   - SAVE: "SaveImage", inputs {"images": ["VAE_DECODE", 0], "filename_prefix": "zsphoto"}
+   模块级常量：QWEN_UNET="qwen_image_edit_2511_int8_convrot.safetensors"、QWEN_CLIP="qwen_3_8b_fp8mixed.safetensors"、QWEN_VAE="qwen_image_vae.safetensors"
+3. `edit_image`：上传 → 构造工作流 → POST /prompt {"prompt": workflow, "client_id": 随机字符串} → 拿到 prompt_id → 循环 GET /history/{prompt_id}（每 1 秒一次，直到 timeout）→ 从 outputs 里找 images 节点拿 filename/subfolder/type → GET /view?filename=..&subfolder=..&type=.. 下载字节 → cv2.imdecode 返回 BGR。超时抛 TimeoutError，服务不通抛 ConnectionError("ComfyUI 服务未启动")。
+4. 常用 prompt 预设：
+```python
+PRESET_PROMPTS = {
+    "换正装": "把人物的衣服换成正式的深色西装，保持人脸、发型和背景完全不变，自然贴合",
+    "换白衬衫": "把人物的衣服换成白色衬衫，保持人脸、发型和背景完全不变",
+    "换发型": "给人物换一个整洁利落的短发发型，保持人脸五官和背景完全不变，发际线自然",
+    "一键微笑": "让人物自然地微笑，露出牙齿，保持五官特征、发型、衣服和背景完全不变",
+}
+```

@@ -1,0 +1,7 @@
+你是资深 Python 开发者。只输出一个完整的 Python 代码块（用```python包裹），不要任何解释文字。代码含中文注释，文件头加 # -*- coding: utf-8 -*-。
+
+编写模块 core/scanner.py，实现文档扫描校正。要求：
+
+1. `find_document_contour(bgr)`: 灰度→高斯模糊→Canny→膨胀→findContours 找最大轮廓→approxPolyDP 逼近四边形（面积需大于图像面积 0.15 倍且为凸四边形），返回 4 个顶点（按 左上、右上、右下、左下 排序）的 numpy 数组；找不到返回 None。
+2. `four_point_transform(bgr, pts)`: 按给定四点做透视变换矫正，目标宽高取四点的最大边长。
+3. `enhance_document(bgr, mode)`: mode 为 'original'（原样返回）、'enhanced'（灰度化后用 CLAHE 增强对比再回 BGR）、'gray'（灰度）、'bw'（自适应阈值二值化，blockSize=25, C=15，去噪后返回）。
